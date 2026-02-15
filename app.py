@@ -165,9 +165,9 @@ try:
         bank_price = bank_nifty['Close'].iloc[-1] if len(bank_nifty) > 0 else 0
         st.metric("🏦 Bank Nifty", f"₹{bank_price:.0f}", "Banking Index", delta_color="off")
     with col3:
-        st.metric("📌 Watchlist Items", len(st.session_state.watchlist), "Tracked Stocks")
+        st.metric("📌 Watchlist Items", len(st.session_state.get('watchlist', [])), "Tracked Stocks")
     with col4:
-        st.metric("💼 Portfolio Items", len(st.session_state.portfolio), "Holdings")
+        st.metric("💼 Portfolio Items", len(st.session_state.get('portfolio', {})), "Holdings")
 except:
     st.warning("Market data temporarily unavailable")
 
@@ -220,12 +220,17 @@ def save_alerts(alerts):
     with open(ALERTS_FILE, "w") as f:
         json.dump(alerts, f)
 
-if 'watchlist' not in st.session_state:
-    st.session_state.watchlist = load_watchlist()
-if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = load_portfolio()
-if 'alerts' not in st.session_state:
-    st.session_state.alerts = load_alerts()
+def initialize_session_state():
+    """Ensure required session-state keys exist before use."""
+    if 'watchlist' not in st.session_state:
+        st.session_state.watchlist = load_watchlist()
+    if 'portfolio' not in st.session_state:
+        st.session_state.portfolio = load_portfolio()
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = load_alerts()
+
+
+initialize_session_state()
 
 # ================= STOCK LIST =================
 INDIAN_STOCKS = {
@@ -253,6 +258,16 @@ INDIAN_STOCKS = {
     "^NSEI (Nifty 50)": "^NSEI",
     "^NSEBANK (Bank Nifty)": "^NSEBANK"
 }
+
+
+def normalize_indian_symbol(symbol):
+    """Normalize manual NSE/BSE symbols for Yahoo Finance lookup."""
+    cleaned = symbol.strip().upper().replace(" ", "")
+    if not cleaned:
+        return ""
+    if cleaned.startswith("^") or cleaned.endswith(".NS") or cleaned.endswith(".BO"):
+        return cleaned
+    return f"{cleaned}.NS"
 
 # ================= PROFESSIONAL SUBSCRIPTION SYSTEM =================
 PRO_KEYS = ["PRO123", "VIP999", "INDIA2025"]
@@ -1537,17 +1552,23 @@ st.sidebar.markdown("""
 <h3 style="color: #1f77b4; margin-bottom: 1rem;">🔍 Search Stocks</h3>
 """, unsafe_allow_html=True)
 
+search_query = st.sidebar.text_input(
+    "Search by symbol (supports all Indian stocks)",
+    "",
+    placeholder="e.g., RELIANCE, TCS.NS, SBIN",
+)
+
 search_option = st.sidebar.selectbox(
     "Browse popular stocks",
-    ["Select..."] + list(INDIAN_STOCKS.keys()) + ["Manual Entry"],
+    ["Select..."] + list(INDIAN_STOCKS.keys()),
     label_visibility="collapsed"
 )
 
 # Logic to determine active Ticker
 if selected_watchlist_ticker != "None":
     ticker = selected_watchlist_ticker
-elif search_option == "Manual Entry":
-    ticker = st.sidebar.text_input("Enter symbol (e.g., ZOMATO.NS)", "TATASTEEL.NS").upper()
+elif search_query:
+    ticker = normalize_indian_symbol(search_query)
 elif search_option != "Select...":
     ticker = INDIAN_STOCKS[search_option]
 else:
