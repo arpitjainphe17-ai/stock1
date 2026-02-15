@@ -2246,13 +2246,9 @@ with tab6:
     col_cmp1, col_cmp2 = st.columns(2)
     
     with col_cmp1:
-       # --- NEW CODE START ---
-        # Pehle options ki list banao
-        options_list = [v for k, v in INDIAN_STOCKS.items()]
-
-        # Agar current ticker list mein nahi hai, toh usko add karo taaki crash na ho
-        if ticker not in options_list:
-            options_list.append(ticker)
+        options_list = list(dict.fromkeys(INDIAN_STOCKS.values()))
+        if ticker and ticker not in options_list:
+            options_list.insert(0, ticker)
 
         compare_stocks_list = st.multiselect(
             "Select stocks to compare with current",
@@ -2260,7 +2256,6 @@ with tab6:
             default=[ticker],
             label_visibility="collapsed"
         )
-        # --- NEW CODE END ---
         
         if compare_stocks_list and len(compare_stocks_list) > 1:
             comparison_df = compare_stocks(compare_stocks_list)
